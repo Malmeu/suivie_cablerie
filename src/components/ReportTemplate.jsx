@@ -14,7 +14,17 @@ export default function ReportTemplate({ reportRef }) {
   });
 
   return (
-    <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+    <div style={{ 
+      position: 'fixed', 
+      left: 0, 
+      top: 0, 
+      width: '210mm',
+      height: 'auto',
+      opacity: 0, 
+      pointerEvents: 'none', 
+      zIndex: -1000,
+      overflow: 'hidden'
+    }}>
       <div 
         ref={reportRef}
         style={{

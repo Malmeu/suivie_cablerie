@@ -12,11 +12,24 @@ export default function SettingsView({ reportRef }) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerateReport = async () => {
-    if (!reportRef.current) return;
+    if (!reportRef.current) {
+      alert("Erreur: Le modèle de rapport n'est pas disponible.");
+      return;
+    }
     setIsGenerating(true);
-    const success = await generatePDF(reportRef.current, `Rapport_Cablage_Hopital_${new Date().toISOString().slice(0,10)}.pdf`);
-    setIsGenerating(false);
-    if (!success) alert('Erreur lors de la génération du PDF');
+    try {
+      const success = await generatePDF(reportRef.current, `Rapport_Cablage_Hopital_${new Date().toISOString().slice(0,10)}.pdf`);
+      if (success) {
+        alert('Le rapport a été généré et sera téléchargé sous peu.');
+      } else {
+        alert('Erreur lors de la capture du rapport. Veuillez réessayer.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Une erreur inattendue est survenue.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleExport = () => {
