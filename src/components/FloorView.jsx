@@ -8,17 +8,14 @@ import {
 
 const iconMap = { Monitor, Wifi, Laptop, Tv, Camera, Bell, Flame, Lock };
 
-// Coordonnées approximatives pour les 11 blocs sur le plan (en %)
-const BLOCK_COORDINATES = [
-  { x: 15, y: 35 }, { x: 25, y: 20 }, { x: 45, y: 15 }, 
-  { x: 75, y: 15 }, { x: 85, y: 35 }, { x: 85, y: 65 },
-  { x: 75, y: 85 }, { x: 45, y: 85 }, { x: 25, y: 85 },
-  { x: 15, y: 65 }, { x: 50, y: 50 }
-];
+// Coordonnées calibrées pour les 11 blocs sur le plan (en %)
+const BLOCK_COORDINATES = [{"x":40.8,"y":88.4},{"x":80.4,"y":79.8},{"x":81.8,"y":64.3},{"x":85.2,"y":38.7},{"x":78.7,"y":18.6},{"x":43.3,"y":21.5},{"x":25,"y":60.3},{"x":19.3,"y":75.5},{"x":13.4,"y":92.8},{"x":52.6,"y":56.7},{"x":34.9,"y":38.1}];
 
 export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
   const [selectedFloor, setSelectedFloor] = useState(initialFloor !== null ? initialFloor : 0);
   const [viewMode, setViewMode] = useState('plan'); // 'grid' ou 'plan'
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [coords, setCoords] = useState(BLOCK_COORDINATES);
   const { getFloorStats, getBlockStats, trackingData } = useTracking();
 
   // Synchroniser si la prop change
@@ -27,6 +24,23 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
       setSelectedFloor(initialFloor);
     }
   }, [initialFloor]);
+
+  // Si on change d'étage, on pourrait charger des coordonnées spécifiques (à implémenter si besoin)
+  // Pour l'instant on utilise le même set pour l'exemple
+  
+  const handleDrag = (e, index) => {
+    if (!isEditMode) return;
+    const rect = e.currentTarget.parentElement.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    const newCoords = [...coords];
+    newCoords[index] = { 
+      x: Math.max(0, Math.min(100, Math.round(x * 10) / 10)), 
+      y: Math.max(0, Math.min(100, Math.round(y * 10) / 10)) 
+    };
+    setCoords(newCoords);
+  };
 
   const currentFloor = FLOORS.find(f => f.id === selectedFloor);
   const floorStats = getFloorStats(selectedFloor);
@@ -120,6 +134,29 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
             <Grid size={14} /> Grille
           </button>
         </div>
+
+        {/* Bouton Mode Edition (uniquement en vue plan) */}
+        {viewMode === 'plan' && (
+          <button 
+            onClick={() => setIsEditMode(!isEditMode)}
+            style={{ 
+              padding: '8px 12px', 
+              borderRadius: 'var(--radius-lg)',
+              background: isEditMode ? 'var(--color-issue)' : 'rgba(255,255,255,0.1)',
+              color: 'white',
+              border: isEditMode ? 'none' : '1px solid var(--color-border)',
+              marginLeft: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.8rem',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            {isEditMode ? '✅ Terminer Placement' : '🔧 Placer les Blocs'}
+          </button>
+        )}
       </div>
 
       {/* Sélecteur d'étages */}
@@ -151,15 +188,17 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
       </div>
 
       {/* Vue visuelle de l'étage */}
-      <div className="floor-visual" id="floor-visual" style={{ padding: viewMode === 'plan' ? '0' : '24px', overflow: 'hidden' }}>
-        <div style={{ padding: '24px 24px 0 24px', marginBottom: viewMode === 'plan' ? '0' : '20px' }}>
+      <div className="floor-visual" id="floor-visual" style={{ padding: viewMode === 'plan' ? '0' : '24px', overflow: 'visible' }}>
+        <div style={{ padding: '24px 24px 0 24px', marginBottom: viewMode === 'plan' ? '4px' : '20px' }}>
           <div className="floor-visual-title">
             {viewMode === 'plan' ? <MapIcon size={18} /> : <Layers size={18} />}
             {viewMode === 'plan' ? 'Plan Interactif' : 'Grille des Blocs'} - {currentFloor?.fullName}
+            {isEditMode && <span style={{ color: 'var(--color-issue)', marginLeft: '10px', fontSize: '0.9rem' }}>• MODE ÉDITION ACTIF : Glissez les cercles sur le plan</span>}
           </div>
         </div>
 
         {viewMode === 'grid' ? (
+          /* ... (grid view code remains same) ... */
           <div className="floor-blocks-grid" style={{ padding: '0 24px 24px 24px' }}>
             {Array.from({ length: BLOCKS_PER_FLOOR }, (_, i) => {
               const blockNum = i + 1;
@@ -219,18 +258,38 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
           <div style={{ 
             position: 'relative', 
             width: '100%', 
-            minHeight: '600px', 
+            minHeight: '700px', 
             background: '#0f172a',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
+            justifyContent: 'flex-start',
+            padding: '40px 20px',
+            overflowX: 'auto'
           }}>
-            <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '80vh' }}>
+            {isEditMode && (
+              <div style={{ 
+                background: 'rgba(0,0,0,0.8)', 
+                padding: '12px', 
+                borderRadius: '8px', 
+                marginBottom: '20px', 
+                fontSize: '0.8rem', 
+                fontFamily: 'monospace',
+                maxWidth: '800px',
+                border: '1px solid var(--color-issue)'
+              }}>
+                <p style={{ marginBottom: '8px', color: 'var(--color-issue)' }}>Copiez ces coordonnées une fois fini :</p>
+                <div style={{ wordBreak: 'break-all', userSelect: 'all' }}>
+                  const BLOCK_COORDINATES = {JSON.stringify(coords)};
+                </div>
+              </div>
+            )}
+
+            <div style={{ position: 'relative', width: 'fit-content', cursor: isEditMode ? 'crosshair' : 'default' }}>
               <img 
                 src={`/plans/${selectedFloor === 0 ? 'rdc' : 'floor' + selectedFloor}.jpg`} 
                 alt={`Plan ${currentFloor?.name}`}
-                style={{ maxWidth: '100%', height: 'auto', borderRadius: 'var(--radius-md)', opacity: 0.8 }}
+                style={{ display: 'block', maxWidth: 'none', width: 'auto', height: 'auto', maxHeight: '120vh', borderRadius: 'var(--radius-md)', opacity: isEditMode ? 0.4 : 0.8 }}
                 onError={(e) => {
                   e.target.src = 'https://placehold.co/1200x800/1e293b/white?text=Plan+Non+Disponible+sur+le+serveur';
                 }}
@@ -239,63 +298,50 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
               {/* Overlay des BLOCS interactifs */}
               {Array.from({ length: BLOCKS_PER_FLOOR }, (_, i) => {
                 const blockNum = i + 1;
-                const coord = BLOCK_COORDINATES[i] || { x: 50, y: 50 };
+                const coord = coords[i] || { x: 50, y: 50 };
                 const blockStats = getBlockStats(selectedFloor, blockNum);
-                const mainStatus = getBlockMainStatus(selectedFloor, blockNum);
                 const color = getBlockColor(blockStats.percentage);
 
                 return (
                   <div
                     key={blockNum}
-                    onClick={() => onNavigateBlock(selectedFloor, blockNum)}
+                    onMouseDown={(e) => isEditMode && e.preventDefault()}
+                    onMouseMove={(e) => isEditMode && e.buttons === 1 && handleDrag(e, i)}
+                    onClick={() => !isEditMode && onNavigateBlock(selectedFloor, blockNum)}
                     style={{
                       position: 'absolute',
                       left: `${coord.x}%`,
                       top: `${coord.y}%`,
                       transform: 'translate(-50%, -50%)',
-                      width: '40px',
-                      height: '40px',
+                      width: isEditMode ? '44px' : '40px',
+                      height: isEditMode ? '44px' : '40px',
                       borderRadius: '50%',
-                      background: `${color}40`,
-                      border: `2px solid ${color}`,
+                      background: isEditMode ? 'rgba(255,255,255,0.2)' : `${color}40`,
+                      border: `2px solid ${isEditMode ? 'var(--color-issue)' : color}`,
                       backdropFilter: 'blur(4px)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      cursor: 'pointer',
-                      boxShadow: `0 0 15px ${color}40`,
-                      transition: 'all 0.3s ease',
-                      zIndex: 10
+                      cursor: isEditMode ? 'move' : 'pointer',
+                      boxShadow: isEditMode ? '0 0 20px rgba(239, 68, 68, 0.5)' : `0 0 15px ${color}40`,
+                      transition: isEditMode ? 'none' : 'all 0.3s ease',
+                      zIndex: isEditMode ? 100 : 10
                     }}
-                    title={`Bloc ${blockNum} - ${blockStats.percentage}%`}
-                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.3)'; e.currentTarget.style.zIndex = 20; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)'; e.currentTarget.style.zIndex = 10; }}
                   >
                     <span style={{ fontSize: '0.8rem', fontWeight: '900', color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
                       {blockNum}
                     </span>
                     
-                    {/* Ring indicateur de progression */}
-                    <svg style={{ position: 'absolute', width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-                      <circle
-                        cx="20"
-                        cy="20"
-                        r="18"
-                        stroke="rgba(255,255,255,0.1)"
-                        strokeWidth="2"
-                        fill="none"
-                      />
-                      <circle
-                        cx="20"
-                        cy="20"
-                        r="18"
-                        stroke={color}
-                        strokeWidth="2"
-                        fill="none"
-                        strokeDasharray={`${(18 * 2 * Math.PI * blockStats.percentage) / 100} 1000`}
-                        strokeLinecap="round"
-                      />
-                    </svg>
+                    {!isEditMode && (
+                      <svg style={{ position: 'absolute', width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                        <circle cx="20" cy="20" r="18" stroke="rgba(255,255,255,0.1)" strokeWidth="2" fill="none" />
+                        <circle
+                          cx="20" cy="20" r="18" stroke={color} strokeWidth="2" fill="none"
+                          strokeDasharray={`${(18 * 2 * Math.PI * blockStats.percentage) / 100} 1000`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    )}
                   </div>
                 );
               })}
