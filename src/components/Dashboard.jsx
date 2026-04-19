@@ -8,7 +8,7 @@ import {
 
 const iconMap = { Monitor, Wifi, Laptop, Tv, Camera, Bell, Flame, Lock };
 
-export default function Dashboard({ onNavigateFloor }) {
+export default function Dashboard({ onNavigateFloor, onNavigateBlock }) {
   const { getGlobalStats, getFloorStats, getBlockStats, getCableTypeStats } = useTracking();
   const globalStats = getGlobalStats();
 
@@ -117,6 +117,11 @@ export default function Dashboard({ onNavigateFloor }) {
                         className={`building-block building-block--${status}`}
                         title={`Bloc ${blockNum} - ${blockStats.percentage}%`}
                         id={`building-block-${floor.id}-${blockNum}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNavigateBlock(floor.id, blockNum);
+                        }}
+                        style={{ cursor: 'pointer' }}
                       >
                         B{blockNum}
                       </div>

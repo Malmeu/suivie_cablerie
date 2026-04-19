@@ -55,7 +55,7 @@ function AppContent() {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard onNavigateFloor={handleNavigateFloor} />;
+        return <Dashboard onNavigateFloor={handleNavigateFloor} onNavigateBlock={handleNavigateBlock} />;
 
       case 'floors':
       case 'floor-detail':

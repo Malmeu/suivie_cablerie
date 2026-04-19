@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTracking } from '../context/TrackingContext';
 import { CABLE_TYPES, FLOORS, BLOCKS_PER_FLOOR, STATUS } from '../data/cableTypes';
 import {
@@ -8,9 +8,16 @@ import {
 
 const iconMap = { Monitor, Wifi, Laptop, Tv, Camera, Bell, Flame, Lock };
 
-export default function FloorView({ onNavigateBlock, onBack }) {
-  const [selectedFloor, setSelectedFloor] = useState(0);
+export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
+  const [selectedFloor, setSelectedFloor] = useState(initialFloor !== null ? initialFloor : 0);
   const { getFloorStats, getBlockStats, trackingData } = useTracking();
+
+  // Synchroniser si la prop change
+  useEffect(() => {
+    if (initialFloor !== null) {
+      setSelectedFloor(initialFloor);
+    }
+  }, [initialFloor]);
 
   const currentFloor = FLOORS.find(f => f.id === selectedFloor);
   const floorStats = getFloorStats(selectedFloor);
