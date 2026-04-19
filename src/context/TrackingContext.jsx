@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { CABLE_TYPES, FLOORS, BLOCKS_PER_FLOOR, STATUS } from '../data/cableTypes';
+import { supabase } from '../lib/supabase';
 
 const TrackingContext = createContext(null);
 
 /**
- * Initialise les données de suivi pour tous les étages/blocs/câbles
+ * Initialise une structure de données vide (structure locale par défaut)
  */
-const initializeTrackingData = () => {
+const getInitialEmptyData = () => {
   const data = {};
   FLOORS.forEach(floor => {
     data[floor.id] = {};
@@ -25,53 +26,130 @@ const initializeTrackingData = () => {
   return data;
 };
 
-/**
- * Charge les données depuis le localStorage
- */
-const loadFromStorage = () => {
-  try {
-    const saved = localStorage.getItem('cabletrack_data');
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Erreur de chargement des données:', e);
-  }
-  return initializeTrackingData();
-};
-
 export function TrackingProvider({ children }) {
-  const [trackingData, setTrackingData] = useState(loadFromStorage);
+  const [trackingData, setTrackingData] = useState(getInitialEmptyData());
+  const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date().toISOString());
 
-  // Sauvegarde automatique dans le localStorage
+  /**
+   * Charge les données de Supabase au démarrage
+   */
+  const fetchAllData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('cabling_tracking')
+        .select('*');
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const newData = getInitialEmptyData();
+        data.forEach(item => {
+          if (newData[item.floor_id] && newData[item.floor_id][item.block_num]) {
+            newData[item.floor_id][item.block_num][item.cable_id] = {
+              status: item.status,
+              notes: item.notes || '',
+              lastUpdated: item.last_updated,
+              updatedBy: item.updated_by || '',
+            };
+          }
+        });
+        setTrackingData(newData);
+      }
+    } catch (err) {
+      console.error('Erreur lors du chargement Supabase:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    localStorage.setItem('cabletrack_data', JSON.stringify(trackingData));
-  }, [trackingData]);
+    fetchAllData();
+
+    // S'abonner aux changements en temps réel
+    const subscription = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'cabling_tracking' }, 
+        (payload) => {
+          const item = payload.new || payload.old;
+          if (item) {
+            setTrackingData(prev => {
+              const next = { ...prev };
+              next[item.floor_id] = { ...next[item.floor_id] };
+              next[item.floor_id][item.block_num] = { ...next[item.floor_id][item.block_num] };
+              next[item.floor_id][item.block_num][item.cable_id] = {
+                status: item.status,
+                notes: item.notes || '',
+                lastUpdated: item.last_updated,
+                updatedBy: item.updated_by || '',
+              };
+              return next;
+            });
+            setLastUpdate(new Date().toISOString());
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [fetchAllData]);
 
   /**
-   * Met à jour le statut d'un câblage pour un bloc donné
+   * Met à jour un statut dans Supabase (UPSERT)
    */
-  const updateCableStatus = useCallback((floorId, blockNum, cableId, status, notes = '', updatedBy = '') => {
+  const updateCableStatus = useCallback(async (floorId, blockNum, cableId, status, notes = '', updatedBy = '') => {
+    const now = new Date().toISOString();
+    
+    // Optimistic update
     setTrackingData(prev => {
       const newData = { ...prev };
       newData[floorId] = { ...newData[floorId] };
       newData[floorId][blockNum] = { ...newData[floorId][blockNum] };
-      newData[floorId][blockNum][cableId] = {
-        status,
-        notes,
-        lastUpdated: new Date().toISOString(),
-        updatedBy,
-      };
+      newData[floorId][blockNum][cableId] = { status, notes, lastUpdated: now, updatedBy };
       return newData;
     });
-    setLastUpdate(new Date().toISOString());
-  }, []);
+
+    try {
+      const { error } = await supabase
+        .from('cabling_tracking')
+        .upsert({
+          floor_id: floorId,
+          block_num: blockNum,
+          cable_id: cableId,
+          status,
+          notes,
+          last_updated: now,
+          updated_by: updatedBy
+        }, { onConflict: 'floor_id,block_num,cable_id' });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Erreur de synchro Supabase:', err.message);
+      // En cas d'erreur, on pourrait recharger les données pour être à jour
+      fetchAllData();
+    }
+  }, [fetchAllData]);
 
   /**
-   * Met à jour tous les câblages d'un bloc en une fois
+   * Met à jour tout un bloc dans Supabase
    */
-  const updateBlockStatus = useCallback((floorId, blockNum, statusId) => {
+  const updateBlockStatus = useCallback(async (floorId, blockNum, statusId) => {
+    const now = new Date().toISOString();
+    
+    // Pour les mises à jour en bloc, on prépare les objets pour upsert
+    const upsertData = CABLE_TYPES.map(cable => ({
+      floor_id: floorId,
+      block_num: blockNum,
+      cable_id: cable.id,
+      status: statusId,
+      last_updated: now
+    }));
+
+    // Update local
     setTrackingData(prev => {
       const newData = { ...prev };
       newData[floorId] = { ...newData[floorId] };
@@ -80,16 +158,26 @@ export function TrackingProvider({ children }) {
         newData[floorId][blockNum][cable.id] = {
           ...newData[floorId][blockNum][cable.id],
           status: statusId,
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: now,
         };
       });
       return newData;
     });
-    setLastUpdate(new Date().toISOString());
-  }, []);
+
+    try {
+      const { error } = await supabase
+        .from('cabling_tracking')
+        .upsert(upsertData, { onConflict: 'floor_id,block_num,cable_id' });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Erreur de synchro bloc Supabase:', err.message);
+      fetchAllData();
+    }
+  }, [fetchAllData]);
 
   /**
-   * Calcule les statistiques pour un bloc donné
+   * Fonctions utilitaires de calcul (inchangées car elles utilisent trackingData)
    */
   const getBlockStats = useCallback((floorId, blockNum) => {
     const blockData = trackingData[floorId]?.[blockNum];
@@ -103,13 +191,10 @@ export function TrackingProvider({ children }) {
       else if (status === STATUS.ISSUE.id) stats.issues++;
       else stats.notStarted++;
     });
-    stats.percentage = Math.round((stats.completed / stats.total) * 100);
+    stats.percentage = Math.round((stats.completed / (stats.total || 1)) * 100);
     return stats;
   }, [trackingData]);
 
-  /**
-   * Calcule les statistiques pour un étage entier
-   */
   const getFloorStats = useCallback((floorId) => {
     const total = BLOCKS_PER_FLOOR * CABLE_TYPES.length;
     let completed = 0, inProgress = 0, notStarted = 0, issues = 0;
@@ -123,18 +208,11 @@ export function TrackingProvider({ children }) {
     }
 
     return {
-      total,
-      completed,
-      inProgress,
-      notStarted,
-      issues,
-      percentage: Math.round((completed / total) * 100),
+      total, completed, inProgress, notStarted, issues,
+      percentage: Math.round((completed / (total || 1)) * 100),
     };
   }, [getBlockStats]);
 
-  /**
-   * Calcule les statistiques globales
-   */
   const getGlobalStats = useCallback(() => {
     const total = FLOORS.length * BLOCKS_PER_FLOOR * CABLE_TYPES.length;
     let completed = 0, inProgress = 0, notStarted = 0, issues = 0;
@@ -148,18 +226,11 @@ export function TrackingProvider({ children }) {
     });
 
     return {
-      total,
-      completed,
-      inProgress,
-      notStarted,
-      issues,
-      percentage: Math.round((completed / total) * 100),
+      total, completed, inProgress, notStarted, issues,
+      percentage: Math.round((completed / (total || 1)) * 100),
     };
   }, [getFloorStats]);
 
-  /**
-   * Statistiques par type de câble (global)
-   */
   const getCableTypeStats = useCallback((cableId) => {
     const total = FLOORS.length * BLOCKS_PER_FLOOR;
     let completed = 0, inProgress = 0, notStarted = 0, issues = 0;
@@ -174,20 +245,28 @@ export function TrackingProvider({ children }) {
       }
     });
 
-    return { total, completed, inProgress, notStarted, issues, percentage: Math.round((completed / total) * 100) };
+    return { total, completed, inProgress, notStarted, issues, percentage: Math.round((completed / (total || 1)) * 100) };
   }, [trackingData]);
 
-  /**
-   * Réinitialise toutes les données
-   */
-  const resetAllData = useCallback(() => {
-    const freshData = initializeTrackingData();
-    setTrackingData(freshData);
-    setLastUpdate(new Date().toISOString());
+  const resetAllData = useCallback(async () => {
+    if (confirm('Voulez-vous vraiment effacer TOUTES les données sur Supabase ?')) {
+      try {
+        const { error } = await supabase
+          .from('cabling_tracking')
+          .delete()
+          .not('id', 'is', null); // Delete all
+        
+        if (error) throw error;
+        setTrackingData(getInitialEmptyData());
+      } catch (err) {
+        console.error('Erreur lors de la réinitialisation:', err.message);
+      }
+    }
   }, []);
 
   const value = {
     trackingData,
+    loading,
     lastUpdate,
     updateCableStatus,
     updateBlockStatus,
