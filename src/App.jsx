@@ -7,8 +7,11 @@ import FloorView from './components/FloorView';
 import BlockView from './components/BlockView';
 import CablesView from './components/CablesView';
 import SettingsView from './components/SettingsView';
+import ReportTemplate from './components/ReportTemplate';
+import { useRef } from 'react';
 
 function AppContent() {
+  const reportRef = useRef(null);
   // Navigation state
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedFloor, setSelectedFloor] = useState(null);
@@ -77,7 +80,7 @@ function AppContent() {
         return <CablesView />;
 
       case 'settings':
-        return <SettingsView />;
+        return <SettingsView reportRef={reportRef} />;
 
       default:
         return <Dashboard onNavigateFloor={handleNavigateFloor} />;
@@ -102,6 +105,9 @@ function AppContent() {
       </main>
 
       <BottomNav currentView={getNavView()} onNavigate={handleNavigate} />
+      
+      {/* Hidden Report Template for PDF generation */}
+      <ReportTemplate reportRef={reportRef} />
     </div>
   );
 }

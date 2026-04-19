@@ -1,13 +1,23 @@
 import { useTracking } from '../context/TrackingContext';
 import { FLOORS, BLOCKS_PER_FLOOR, CABLE_TYPES } from '../data/cableTypes';
 import {
-  Trash2, Download, Upload, AlertTriangle, Info
+  Trash2, Download, Upload, AlertTriangle, Info, FileText, Loader2
 } from 'lucide-react';
 import { useState } from 'react';
+import { generatePDF } from '../utils/pdfGenerator';
 
-export default function SettingsView() {
+export default function SettingsView({ reportRef }) {
   const { trackingData, resetAllData } = useTracking();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerateReport = async () => {
+    if (!reportRef.current) return;
+    setIsGenerating(true);
+    const success = await generatePDF(reportRef.current, `Rapport_Cablage_Hopital_${new Date().toISOString().slice(0,10)}.pdf`);
+    setIsGenerating(false);
+    if (!success) alert('Erreur lors de la génération du PDF');
+  };
 
   const handleExport = () => {
     const dataStr = JSON.stringify(trackingData, null, 2);
@@ -91,6 +101,22 @@ export default function SettingsView() {
 
       {/* Actions */}
       <div className="cable-list" style={{ gap: 10 }}>
+        <button
+          className="cable-item"
+          style={{ cursor: 'pointer', textAlign: 'left', borderColor: 'var(--color-accent)' }}
+          onClick={handleGenerateReport}
+          disabled={isGenerating}
+          id="generate-pdf-report"
+        >
+          <div className="cable-item-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: 'var(--color-accent-light)' }}>
+            {isGenerating ? <Loader2 size={22} className="animate-spin" /> : <FileText size={22} />}
+          </div>
+          <div className="cable-item-info">
+            <div className="cable-item-name" style={{ color: 'var(--color-accent-light)' }}>Générer Rapport Complet (PDF)</div>
+            <div className="cable-item-meta">Rapport professionnel détaillé de l'état du chantier</div>
+          </div>
+        </button>
+
         <button
           className="cable-item"
           style={{ cursor: 'pointer', textAlign: 'left' }}
