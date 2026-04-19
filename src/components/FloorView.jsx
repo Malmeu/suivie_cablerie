@@ -18,9 +18,11 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
   const [viewMode, setViewMode] = useState('plan'); // 'grid' ou 'plan'
   const [isEditMode, setIsEditMode] = useState(false);
   const [isPathMode, setIsPathMode] = useState(false);
+  const [isNoteMode, setIsNoteMode] = useState(false);
   const [activeCableForPath, setActiveCableForPath] = useState(CABLE_TYPES[0].id);
   const [activeBlockForPath, setActiveBlockForPath] = useState(1);
   const [paths, setPaths] = useState({}); // { "block-cable": [{x,y}, ...] }
+  const [notes, setNotes] = useState([]); // Array of { id, text, x, y }
   const [coords, setCoords] = useState(BLOCK_COORDINATES);
   const { getFloorStats, getBlockStats, trackingData } = useTracking();
 
@@ -34,23 +36,30 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
   // Si on change d'étage, on pourrait charger des coordonnées spécifiques (à implémenter si besoin)
   // Pour l'instant on utilise le même set pour l'exemple
   
-  // Charger les chemins depuis Supabase
+  // Charger les chemins et les notes depuis Supabase
   useEffect(() => {
-    const fetchPaths = async () => {
-      const { data, error } = await supabase
+    const fetchData = async () => {
+      // Chemins
+      const { data: pathData } = await supabase
         .from('cable_paths')
         .select('*')
         .eq('floor_id', selectedFloor);
       
-      if (!error && data) {
+      if (pathData) {
         const pathMap = {};
-        data.forEach(p => {
-          pathMap[`${p.block_num}-${p.cable_id}`] = p.points;
-        });
+        pathData.forEach(p => { pathMap[`${p.block_num}-${p.cable_id}`] = p.points; });
         setPaths(pathMap);
       }
+
+      // Notes
+      const { data: noteData } = await supabase
+        .from('floor_notes')
+        .select('*')
+        .eq('floor_id', selectedFloor);
+      
+      if (noteData) setNotes(noteData);
     };
-    fetchPaths();
+    fetchData();
   }, [selectedFloor]);
 
   const handleDrag = (e, index) => {
@@ -99,6 +108,28 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
     } catch (err) {
       console.error('Erreur Supabase synchro:', err);
     }
+  };
+
+  const handleNoteClick = async (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    const text = prompt("Entrez votre note pour cet endroit :");
+    if (!text) return;
+
+    const newNote = { floor_id: selectedFloor, x, y, text };
+    const { data, error } = await supabase.from('floor_notes').insert(newNote).select().single();
+
+    if (!error && data) {
+      setNotes([...notes, data]);
+    }
+  };
+
+  const deleteNote = async (noteId) => {
+    if (!confirm("Supprimer cette note ?")) return;
+    await supabase.from('floor_notes').delete().eq('id', noteId);
+    setNotes(notes.filter(n => n.id !== noteId));
   };
 
   const clearCurrentPath = async () => {
@@ -233,7 +264,7 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
         {/* Bouton Mode Tracé */}
         {viewMode === 'plan' && (
           <button 
-            onClick={() => { setIsPathMode(!isPathMode); setIsEditMode(false); }}
+            onClick={() => { setIsPathMode(!isPathMode); setIsNoteMode(false); setIsEditMode(false); }}
             style={{ 
               padding: '8px 12px', 
               borderRadius: 'var(--radius-lg)',
@@ -250,6 +281,29 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
             }}
           >
             <MapIcon size={14} /> {isPathMode ? '✅ Finir Tracé' : '🖋️ Tracer Câbles'}
+          </button>
+        )}
+
+        {/* Bouton Mode Note */}
+        {viewMode === 'plan' && (
+          <button 
+            onClick={() => { setIsNoteMode(!isNoteMode); setIsPathMode(false); setIsEditMode(false); }}
+            style={{ 
+              padding: '8px 12px', 
+              borderRadius: 'var(--radius-lg)',
+              background: isNoteMode ? '#10b981' : 'rgba(255,255,255,0.1)',
+              color: 'white',
+              border: '1px solid var(--color-border)',
+              marginLeft: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.8rem',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            <span>📝</span> {isNoteMode ? '✅ Finir Notes' : '📝 Note'}
           </button>
         )}
       </div>
@@ -290,6 +344,7 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
             {viewMode === 'plan' ? 'Plan Interactif' : 'Grille des Blocs'} - {currentFloor?.fullName}
             {isEditMode && <span style={{ color: 'var(--color-issue)', marginLeft: '10px', fontSize: '0.9rem' }}>• MODE ÉDITION ACTIF : Glissez les cercles</span>}
             {isPathMode && <span style={{ color: 'var(--color-accent)', marginLeft: '10px', fontSize: '0.9rem' }}>• MODE TRACÉ : Cliquez sur le plan pour dessiner le câble</span>}
+            {isNoteMode && <span style={{ color: '#10b981', marginLeft: '10px', fontSize: '0.9rem' }}>• MODE NOTE : Cliquez sur le plan pour poser une annotation</span>}
           </div>
         </div>
 
@@ -436,6 +491,8 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
 
               {/* SVG Overlay pour les câbles "Chenilles" */}
               <svg 
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
                 style={{ 
                   position: 'absolute', 
                   top: 0, 
@@ -459,31 +516,130 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
                   const cableType = CABLE_TYPES.find(c => c.id === cId);
                   const status = trackingData[selectedFloor]?.[bNum]?.[cId]?.status || 'not_started';
                   
-                  if (points.length < 2 || status === 'not_started') return null;
+                  // On affiche si on a des points
+                  const isCurrentlyDrawing = isPathMode && parseInt(bNum) === activeBlockForPath && cId === activeCableForPath;
+                  
+                  if (points.length === 0) return null;
+                  // On enlève la condition status === 'not_started' pour que ça reste visible tout le temps
 
-                  const pathStr = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x}% ${p.y}%`).join(' ');
+                  const pathStr = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
                   const isCompleted = status === 'completed';
                   const isIssue = status === 'issue';
 
                   return (
-                    <path
-                      key={key}
-                      d={pathStr}
-                      fill="none"
-                      stroke={cableType.color}
-                      strokeWidth={isIssue ? "4" : "3"}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      filter="url(#glow)"
-                      className={!isCompleted ? "cable-path-anim" : ""}
-                      style={{
-                        opacity: isIssue ? 1 : 0.8,
-                        strokeDasharray: isCompleted ? "none" : "8, 12",
-                      }}
-                    />
+                    <g key={key}>
+                      {/* La ligne */}
+                      {points.length >= 2 && (
+                        <path
+                          d={pathStr}
+                          fill="none"
+                          stroke={cableType.color}
+                          strokeWidth={isCurrentlyDrawing ? "0.8" : "0.5"} // Très fin
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          filter={isCurrentlyDrawing ? "url(#glow)" : "none"}
+                          className={(status !== 'completed') ? "cable-path-anim" : ""}
+                          style={{
+                            opacity: isIssue ? 1 : (status === 'not_started' ? 0.4 : 0.8),
+                            strokeDasharray: status === 'completed' ? "none" : "2, 3", // Petites chenilles électriques
+                          }}
+                        />
+                      )}
+                      
+                      {/* Les points individuels pour aider au tracé */}
+                      {isCurrentlyDrawing && points.map((p, idx) => (
+                        <circle
+                          key={idx}
+                          cx={p.x}
+                          cy={p.y}
+                          r="0.5"
+                          fill={cableType.color}
+                          stroke="white"
+                          strokeWidth="0.1"
+                        />
+                      ))}
+                    </g>
                   );
                 })}
+
+                {/* SVG Overlay pour les câbles "Chenilles" */}
+                {/* ... (SVG lines remains same) ... */}
               </svg>
+              
+              {/* Zone de clic invisible pour capturer proprement le tracé ou les notes */}
+              {(isPathMode || isNoteMode) && (
+                <div 
+                  style={{ 
+                    position: 'absolute', 
+                    top: 0, 
+                    left: 0, 
+                    width: '100%', 
+                    height: '100%', 
+                    zIndex: 200, 
+                    cursor: 'crosshair' 
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isPathMode) handlePlanClick(e);
+                    if (isNoteMode) handleNoteClick(e);
+                  }}
+                />
+              )}
+
+              {/* Affichage des NOTES TEXTUELLES en HTML pour une précision et interaction parfaite */}
+              {notes.map(note => (
+                <div 
+                  key={note.id} 
+                  style={{
+                    position: 'absolute',
+                    left: `${note.x}%`,
+                    top: `${note.y}%`,
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 250, // Au-dessus de la zone de clic
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    pointerEvents: isNoteMode ? 'auto' : 'none'
+                  }}
+                >
+                  <div style={{
+                    background: 'rgba(0,0,0,0.85)',
+                    color: 'white',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    borderLeft: '3px solid #10b981',
+                    fontSize: '0.7rem',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                    backdropFilter: 'blur(4px)'
+                  }}>
+                    {note.text}
+                  </div>
+                  
+                  {isNoteMode && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}
+                      style={{
+                        background: 'var(--color-issue)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '18px',
+                        height: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
               
               {/* Overlay des BLOCS interactifs */}
               {Array.from({ length: BLOCKS_PER_FLOOR }, (_, i) => {
