@@ -1477,3 +1477,73 @@ input, select, textarea {
     color: black;
   }
 }
+
+/* === TODO LIST & SUPPLIERS STYLES === */
+.todo-form {
+  margin-bottom: 24px!important;
+  padding: 20px !important;
+}
+.todo-input {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+  padding: 12px 16px !important;
+  color: white !important;
+  outline: none;
+}
+.todo-select {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+  padding: 0 12px !important;
+  color: white !important;
+}
+.todo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+.todo-column {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+.column-header {
+  padding: 16px 20px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.todo-list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+}
+.todo-item.completed { opacity: 0.4; }
+.todo-item.completed .todo-content { text-decoration: line-through; }
+.todo-content { flex: 1; font-size: 0.9rem; }
+.todo-checkbox { background: none; border: none; cursor: pointer; padding: 0; }
+.todo-delete { background: none; border: none; color: var(--color-text-muted); cursor: pointer; }
+.todo-delete:hover { color: var(--color-issue); }
+
+.suppliers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+.supplier-card { padding: 20px !important; }
+.supplier-info { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+.info-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--color-text-muted); }
+.info-item a { color: white; text-decoration: none; }

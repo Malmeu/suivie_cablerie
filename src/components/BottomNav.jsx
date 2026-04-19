@@ -1,12 +1,13 @@
 import {
-  LayoutDashboard, Building2, Cable, Settings
+  LayoutDashboard, Building2, Cable, Settings, ClipboardList, Users
 } from 'lucide-react';
 
 export default function BottomNav({ currentView, onNavigate }) {
   const items = [
     { id: 'dashboard', label: 'Accueil', icon: LayoutDashboard },
     { id: 'floors', label: 'Étages', icon: Building2 },
-    { id: 'cables', label: 'Câbles', icon: Cable },
+    { id: 'todo', label: 'Todo', icon: ClipboardList },
+    { id: 'suppliers', label: 'Contacts', icon: Users },
     { id: 'settings', label: 'Réglages', icon: Settings },
   ];
 

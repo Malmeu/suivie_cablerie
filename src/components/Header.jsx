@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTracking } from '../context/TrackingContext';
 import {
-  LayoutDashboard, Building2, Menu, X, Cable, Activity
+  LayoutDashboard, Building2, Menu, X, Cable, Activity, Settings, ClipboardList, Users
 } from 'lucide-react';
 
 export default function Header({ currentView, onNavigate }) {
@@ -13,6 +13,9 @@ export default function Header({ currentView, onNavigate }) {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'floors', label: 'Étages', icon: Building2 },
     { id: 'cables', label: 'Câblages', icon: Cable },
+    { id: 'todo', label: 'Todo', icon: ClipboardList },
+    { id: 'suppliers', label: 'Fournisseurs', icon: Users },
+    { id: 'settings', label: 'Réglages', icon: Settings },
   ];
 
   const handleNav = (viewId) => {

@@ -7,6 +7,8 @@ import FloorView from './components/FloorView';
 import BlockView from './components/BlockView';
 import CablesView from './components/CablesView';
 import SettingsView from './components/SettingsView';
+import TodoListView from './components/TodoListView';
+import SuppliersView from './components/SuppliersView';
 import ReportTemplate from './components/ReportTemplate';
 import { useRef } from 'react';
 
@@ -82,6 +84,12 @@ function AppContent() {
       case 'settings':
         return <SettingsView reportRef={reportRef} />;
 
+      case 'todo':
+        return <TodoListView />;
+
+      case 'suppliers':
+        return <SuppliersView />;
+
       default:
         return <Dashboard onNavigateFloor={handleNavigateFloor} />;
     }
@@ -93,6 +101,8 @@ function AppContent() {
     if (['floors', 'floor-detail', 'block-detail'].includes(currentView)) return 'floors';
     if (currentView === 'cables') return 'cables';
     if (currentView === 'settings') return 'settings';
+    if (currentView === 'todo') return 'todo';
+    if (currentView === 'suppliers') return 'suppliers';
     return 'dashboard';
   };
 
