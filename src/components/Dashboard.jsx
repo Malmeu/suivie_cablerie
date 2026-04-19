@@ -1,22 +1,38 @@
-import { useTracking } from '../context/TrackingContext';
-import { CABLE_TYPES, FLOORS, BLOCKS_PER_FLOOR, STATUS } from '../data/cableTypes';
 import {
   CheckCircle2, Clock, AlertTriangle, Pause,
   Monitor, Wifi, Laptop, Tv, Camera, Bell, Flame, Lock,
-  Building2, TrendingUp
+  Building2, TrendingUp, Filter, XCircle, Search
 } from 'lucide-react';
 
 const iconMap = { Monitor, Wifi, Laptop, Tv, Camera, Bell, Flame, Lock };
 
 export default function Dashboard({ onNavigateFloor, onNavigateBlock }) {
-  const { getGlobalStats, getFloorStats, getBlockStats, getCableTypeStats } = useTracking();
+  const { getGlobalStats, getFloorStats, getBlockStats, getCableTypeStats, trackingData } = useTracking();
+  const [activeStatusFilter, setActiveStatusFilter] = useState('all');
+  const [activeCableFilter, setActiveCableFilter] = useState('all');
   const globalStats = getGlobalStats();
 
   /**
    * Détermine le status global d'un bloc pour la couleur de la visualisation
+   * Prend en compte les filtres actifs
    */
   const getBlockVisualStatus = (floorId, blockNum) => {
+    const blockData = trackingData[floorId]?.[blockNum];
     const stats = getBlockStats(floorId, blockNum);
+
+    // Si on filtre par câble spécifique
+    if (activeCableFilter !== 'all') {
+      const cableStatus = blockData?.[activeCableFilter]?.status || 'not_started';
+      if (activeStatusFilter !== 'all' && cableStatus !== activeStatusFilter) return 'hidden';
+      return cableStatus;
+    }
+
+    // Si on filtre par statut général
+    if (activeStatusFilter !== 'all') {
+      const hasStatusInBlock = Object.values(blockData || {}).some(c => c.status === activeStatusFilter);
+      return hasStatusInBlock ? activeStatusFilter : 'muted';
+    }
+
     if (stats.issues > 0) return 'issue';
     if (stats.completed === stats.total) return 'completed';
     if (stats.notStarted === stats.total) return 'not_started';
@@ -26,9 +42,73 @@ export default function Dashboard({ onNavigateFloor, onNavigateBlock }) {
   return (
     <div className="dashboard" id="dashboard-view">
       {/* En-tête Dashboard */}
-      <div className="dashboard-header">
-        <h1 className="dashboard-title">📊 Tableau de Bord</h1>
-        <p className="dashboard-subtitle">Vue d'ensemble du chantier de câblerie</p>
+      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
+        <div>
+          <h1 className="dashboard-title">📊 Tableau de Bord</h1>
+          <p className="dashboard-subtitle">Vue d'ensemble du chantier de câblerie</p>
+        </div>
+
+        {/* Barre de Filtres */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '10px', 
+          background: 'var(--color-bg-card)', 
+          padding: '8px 16px', 
+          borderRadius: 'var(--radius-full)',
+          border: '1px solid var(--color-border)',
+          alignItems: 'center'
+        }}>
+          <Filter size={16} color="var(--color-text-muted)" />
+          
+          <select 
+            value={activeStatusFilter}
+            onChange={(e) => setActiveStatusFilter(e.target.value)}
+            style={{ 
+              background: 'none', 
+              color: 'var(--color-text-primary)', 
+              border: 'none', 
+              fontSize: '0.8rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="all">Tous les Statuts</option>
+            {Object.values(STATUS).map(s => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+
+          <div style={{ width: '1px', height: '16px', background: 'var(--color-border)' }} />
+
+          <select 
+            value={activeCableFilter}
+            onChange={(e) => setActiveCableFilter(e.target.value)}
+            style={{ 
+              background: 'none', 
+              color: 'var(--color-text-primary)', 
+              border: 'none', 
+              fontSize: '0.8rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="all">Tous les Câblages</option>
+            {CABLE_TYPES.map(c => (
+              <option key={c.id} value={c.id}>{c.shortName}</option>
+            ))}
+          </select>
+
+          {(activeStatusFilter !== 'all' || activeCableFilter !== 'all') && (
+            <button 
+              onClick={() => { setActiveStatusFilter('all'); setActiveCableFilter('all'); }}
+              style={{ color: 'var(--color-issue)', display: 'flex', alignItems: 'center' }}
+            >
+              <XCircle size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Statistiques Globales */}
