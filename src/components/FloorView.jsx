@@ -1,3 +1,6 @@
+import { useState, useEffect } from 'react';
+import { useTracking } from '../context/TrackingContext';
+import { CABLE_TYPES, FLOORS, BLOCKS_PER_FLOOR, STATUS } from '../data/cableTypes';
 import {
   ArrowLeft, Building2, Layers, Map as MapIcon, Grid,
   Monitor, Wifi, Laptop, Tv, Camera, Bell, Flame, Lock

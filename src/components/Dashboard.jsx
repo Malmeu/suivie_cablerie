@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { useTracking } from '../context/TrackingContext';
+import { CABLE_TYPES, FLOORS, BLOCKS_PER_FLOOR, STATUS } from '../data/cableTypes';
 import {
   CheckCircle2, Clock, AlertTriangle, Pause,
   Monitor, Wifi, Laptop, Tv, Camera, Bell, Flame, Lock,
