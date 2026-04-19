@@ -35,24 +35,32 @@ export default function TodoListView() {
     setIsLoading(false);
   };
 
-  const addTodo = async (e) => {
-    e.preventDefault();
-    if (!newTask.trim()) return;
+  const addTodo = async () => {
+    const taskText = newTask.trim();
+    if (!taskText) {
+      alert('Veuillez écrire quelque chose avant d\'ajouter.');
+      return;
+    }
 
-    console.log('Tentative d\'ajout:', { task: newTask, type: newType });
+    try {
+      console.log('--- CLIC DÉTECTÉ : AJOUT EN COURS ---');
+      const { data, error } = await supabase.from('daily_todos').insert({
+        task: taskText,
+        type: newType,
+        is_completed: false
+      }).select();
 
-    const { error } = await supabase.from('daily_todos').insert({
-      task: newTask,
-      type: newType,
-      is_completed: false
-    });
-
-    if (error) {
-      console.error('Erreur Supabase lors de l\'ajout:', error);
-      alert('Erreur : La table n\'existe peut-être pas ou Supabase est déconnecté. Vérifiez que vous avez bien lancé le script SQL.');
-    } else {
-      setNewTask('');
-      fetchTodos(); // Forcer le rafraîchissement au cas où le realtime tarde
+      if (error) {
+        console.error('Erreur Supabase insertion:', error);
+        alert(`Erreur Supabase : ${error.message} (Vérifiez que vous avez bien lancé le script SQL dans Supabase)`);
+      } else {
+        console.log('Succès !', data);
+        setNewTask('');
+        fetchTodos();
+      }
+    } catch (err) {
+      console.error('Erreur fatale JS:', err);
+      alert('Une erreur critique est survenue.');
     }
   };
 
@@ -82,22 +90,42 @@ export default function TodoListView() {
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <input 
             type="text" 
-            placeholder="Ex: Passer les câbles bloc 4 ou Manque 10 connecteurs RJ45..." 
+            placeholder="Écrivez votre tâche ici..." 
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
             className="todo-input"
-            style={{ flex: 1, minWidth: '250px' }}
+            style={{ 
+              flex: 1, 
+              minWidth: '250px', 
+              background: '#1e293b', 
+              border: '2px solid var(--color-accent)', 
+              color: 'white',
+              fontSize: '1rem'
+            }}
           />
           <div style={{ display: 'flex', gap: '8px' }}>
             <select 
               value={newType} 
               onChange={(e) => setNewType(e.target.value)}
               className="todo-select"
+              style={{ 
+                background: '#1e293b', 
+                border: '2px solid var(--color-accent)', 
+                color: 'white',
+                borderRadius: '8px',
+                padding: '0 10px',
+                cursor: 'pointer'
+              }}
             >
               <option value="task">📝 Tâche</option>
               <option value="material">📦 Matériel</option>
             </select>
-            <button type="submit" className="btn-primary" style={{ padding: '0 20px' }}>
+            <button 
+              type="button" 
+              onClick={addTodo} 
+              className="btn-primary" 
+              style={{ padding: '0 20px', background: 'var(--color-accent)' }}
+            >
               <Plus size={18} /> Ajouter
             </button>
           </div>
