@@ -11,10 +11,16 @@ const iconMap = { Monitor, Wifi, Laptop, Tv, Camera, Bell, Flame, Lock };
 // Coordonnées calibrées pour les 11 blocs sur le plan (en %)
 const BLOCK_COORDINATES = [{"x":40.8,"y":88.4},{"x":80.4,"y":79.8},{"x":81.8,"y":64.3},{"x":85.2,"y":38.7},{"x":78.7,"y":18.6},{"x":43.3,"y":21.5},{"x":25,"y":60.3},{"x":19.3,"y":75.5},{"x":13.4,"y":92.8},{"x":52.6,"y":56.7},{"x":34.9,"y":38.1}];
 
+import { supabase } from '../lib/supabase';
+
 export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
   const [selectedFloor, setSelectedFloor] = useState(initialFloor !== null ? initialFloor : 0);
   const [viewMode, setViewMode] = useState('plan'); // 'grid' ou 'plan'
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isPathMode, setIsPathMode] = useState(false);
+  const [activeCableForPath, setActiveCableForPath] = useState(CABLE_TYPES[0].id);
+  const [activeBlockForPath, setActiveBlockForPath] = useState(1);
+  const [paths, setPaths] = useState({}); // { "block-cable": [{x,y}, ...] }
   const [coords, setCoords] = useState(BLOCK_COORDINATES);
   const { getFloorStats, getBlockStats, trackingData } = useTracking();
 
@@ -28,6 +34,25 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
   // Si on change d'étage, on pourrait charger des coordonnées spécifiques (à implémenter si besoin)
   // Pour l'instant on utilise le même set pour l'exemple
   
+  // Charger les chemins depuis Supabase
+  useEffect(() => {
+    const fetchPaths = async () => {
+      const { data, error } = await supabase
+        .from('cable_paths')
+        .select('*')
+        .eq('floor_id', selectedFloor);
+      
+      if (!error && data) {
+        const pathMap = {};
+        data.forEach(p => {
+          pathMap[`${p.block_num}-${p.cable_id}`] = p.points;
+        });
+        setPaths(pathMap);
+      }
+    };
+    fetchPaths();
+  }, [selectedFloor]);
+
   const handleDrag = (e, index) => {
     if (!isEditMode) return;
     const rect = e.currentTarget.parentElement.getBoundingClientRect();
@@ -40,6 +65,53 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
       y: Math.max(0, Math.min(100, Math.round(y * 10) / 10)) 
     };
     setCoords(newCoords);
+  };
+
+  const handlePlanClick = async (e) => {
+    if (!isPathMode) return;
+    
+    console.log('Clic sur le plan détecté en mode tracé');
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    console.log(`Coordonnées capturées : x=${x}, y=${y}`);
+
+    const pathKey = `${activeBlockForPath}-${activeCableForPath}`;
+    const newPoints = [...(paths[pathKey] || []), { 
+      x: Math.round(x * 10) / 10, 
+      y: Math.round(y * 10) / 10 
+    }];
+    
+    setPaths(prev => ({ ...prev, [pathKey]: newPoints }));
+
+    // Tentative de sauvegarde Supabase
+    try {
+      const { error } = await supabase.from('cable_paths').upsert({
+        floor_id: selectedFloor,
+        block_num: activeBlockForPath,
+        cable_id: activeCableForPath,
+        points: newPoints
+      }, { onConflict: 'floor_id,block_num,cable_id' });
+      
+      if (error) console.warn('Supabase: Table cable_paths non trouvée ou erreur', error.message);
+    } catch (err) {
+      console.error('Erreur Supabase synchro:', err);
+    }
+  };
+
+  const clearCurrentPath = async () => {
+    const pathKey = `${activeBlockForPath}-${activeCableForPath}`;
+    const newPaths = { ...paths };
+    delete newPaths[pathKey];
+    setPaths(newPaths);
+    
+    await supabase.from('cable_paths').delete().match({
+      floor_id: selectedFloor,
+      block_num: activeBlockForPath,
+      cable_id: activeCableForPath
+    });
   };
 
   const currentFloor = FLOORS.find(f => f.id === selectedFloor);
@@ -157,6 +229,29 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
             {isEditMode ? '✅ Terminer Placement' : '🔧 Placer les Blocs'}
           </button>
         )}
+
+        {/* Bouton Mode Tracé */}
+        {viewMode === 'plan' && (
+          <button 
+            onClick={() => { setIsPathMode(!isPathMode); setIsEditMode(false); }}
+            style={{ 
+              padding: '8px 12px', 
+              borderRadius: 'var(--radius-lg)',
+              background: isPathMode ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
+              color: 'white',
+              border: '1px solid var(--color-border)',
+              marginLeft: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.8rem',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            <MapIcon size={14} /> {isPathMode ? '✅ Finir Tracé' : '🖋️ Tracer Câbles'}
+          </button>
+        )}
       </div>
 
       {/* Sélecteur d'étages */}
@@ -193,9 +288,50 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
           <div className="floor-visual-title">
             {viewMode === 'plan' ? <MapIcon size={18} /> : <Layers size={18} />}
             {viewMode === 'plan' ? 'Plan Interactif' : 'Grille des Blocs'} - {currentFloor?.fullName}
-            {isEditMode && <span style={{ color: 'var(--color-issue)', marginLeft: '10px', fontSize: '0.9rem' }}>• MODE ÉDITION ACTIF : Glissez les cercles sur le plan</span>}
+            {isEditMode && <span style={{ color: 'var(--color-issue)', marginLeft: '10px', fontSize: '0.9rem' }}>• MODE ÉDITION ACTIF : Glissez les cercles</span>}
+            {isPathMode && <span style={{ color: 'var(--color-accent)', marginLeft: '10px', fontSize: '0.9rem' }}>• MODE TRACÉ : Cliquez sur le plan pour dessiner le câble</span>}
           </div>
         </div>
+
+        {isPathMode && (
+          <div style={{ 
+            padding: '12px 24px', 
+            background: 'rgba(99, 102, 241, 0.1)', 
+            borderBottom: '1px solid var(--color-border)',
+            display: 'flex',
+            gap: '15px',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}>
+            <select 
+              value={activeBlockForPath} 
+              onChange={(e) => setActiveBlockForPath(parseInt(e.target.value))}
+              style={{ padding: '6px', borderRadius: '4px', background: '#1e293b', color: 'white' }}
+            >
+              {[...Array(BLOCKS_PER_FLOOR)].map((_, i) => (
+                <option key={i+1} value={i+1}>Bloc {i+1}</option>
+              ))}
+            </select>
+            <select 
+              value={activeCableForPath} 
+              onChange={(e) => setActiveCableForPath(e.target.value)}
+              style={{ padding: '6px', borderRadius: '4px', background: '#1e293b', color: 'white' }}
+            >
+              {CABLE_TYPES.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <button 
+              onClick={clearCurrentPath}
+              style={{ padding: '6px 12px', background: 'var(--color-issue)', color: 'white', borderRadius: '4px', fontSize: '0.75rem' }}
+            >
+              Effacer ce tracé
+            </button>
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+              Astuce : Cliquez sur le plan pour ajouter des points au câble sélectionné.
+            </span>
+          </div>
+        )}
 
         {viewMode === 'grid' ? (
           /* ... (grid view code remains same) ... */
@@ -285,15 +421,69 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
               </div>
             )}
 
-            <div style={{ position: 'relative', width: 'fit-content', cursor: isEditMode ? 'crosshair' : 'default' }}>
+            <div 
+              style={{ position: 'relative', width: 'fit-content', cursor: isPathMode ? 'crosshair' : (isEditMode ? 'move' : 'default') }}
+              onClick={handlePlanClick}
+            >
               <img 
                 src={`/plans/${selectedFloor === 0 ? 'rdc' : 'floor' + selectedFloor}.jpg`} 
                 alt={`Plan ${currentFloor?.name}`}
-                style={{ display: 'block', maxWidth: 'none', width: 'auto', height: 'auto', maxHeight: '120vh', borderRadius: 'var(--radius-md)', opacity: isEditMode ? 0.4 : 0.8 }}
+                style={{ display: 'block', maxWidth: 'none', width: 'auto', height: 'auto', maxHeight: '120vh', borderRadius: 'var(--radius-md)', opacity: (isEditMode || isPathMode) ? 0.3 : 0.8 }}
                 onError={(e) => {
                   e.target.src = 'https://placehold.co/1200x800/1e293b/white?text=Plan+Non+Disponible+sur+le+serveur';
                 }}
               />
+
+              {/* SVG Overlay pour les câbles "Chenilles" */}
+              <svg 
+                style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  width: '100%', 
+                  height: '100%', 
+                  pointerEvents: 'none',
+                  zIndex: 5
+                }}
+              >
+                <defs>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                    <feMerge>
+                      <feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+                {Object.entries(paths).map(([key, points]) => {
+                  const [bNum, cId] = key.split('-');
+                  const cableType = CABLE_TYPES.find(c => c.id === cId);
+                  const status = trackingData[selectedFloor]?.[bNum]?.[cId]?.status || 'not_started';
+                  
+                  if (points.length < 2 || status === 'not_started') return null;
+
+                  const pathStr = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x}% ${p.y}%`).join(' ');
+                  const isCompleted = status === 'completed';
+                  const isIssue = status === 'issue';
+
+                  return (
+                    <path
+                      key={key}
+                      d={pathStr}
+                      fill="none"
+                      stroke={cableType.color}
+                      strokeWidth={isIssue ? "4" : "3"}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      filter="url(#glow)"
+                      className={!isCompleted ? "cable-path-anim" : ""}
+                      style={{
+                        opacity: isIssue ? 1 : 0.8,
+                        strokeDasharray: isCompleted ? "none" : "8, 12",
+                      }}
+                    />
+                  );
+                })}
+              </svg>
               
               {/* Overlay des BLOCS interactifs */}
               {Array.from({ length: BLOCKS_PER_FLOOR }, (_, i) => {
@@ -307,7 +497,7 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
                     key={blockNum}
                     onMouseDown={(e) => isEditMode && e.preventDefault()}
                     onMouseMove={(e) => isEditMode && e.buttons === 1 && handleDrag(e, i)}
-                    onClick={() => !isEditMode && onNavigateBlock(selectedFloor, blockNum)}
+                    onClick={() => !isEditMode && !isPathMode && onNavigateBlock(selectedFloor, blockNum)}
                     style={{
                       position: 'absolute',
                       left: `${coord.x}%`,
@@ -322,10 +512,11 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      cursor: isEditMode ? 'move' : 'pointer',
+                      cursor: isPathMode ? 'crosshair' : (isEditMode ? 'move' : 'pointer'),
                       boxShadow: isEditMode ? '0 0 20px rgba(239, 68, 68, 0.5)' : `0 0 15px ${color}40`,
                       transition: isEditMode ? 'none' : 'all 0.3s ease',
-                      zIndex: isEditMode ? 100 : 10
+                      zIndex: (isEditMode || isPathMode) ? 100 : 10,
+                      pointerEvents: isPathMode ? 'none' : 'auto' // Désactiver les clics sur les cercles en mode tracé
                     }}
                   >
                     <span style={{ fontSize: '0.8rem', fontWeight: '900', color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>

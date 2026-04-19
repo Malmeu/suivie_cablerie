@@ -1438,6 +1438,15 @@ input, select, textarea {
   animation: spin 1s linear infinite;
 }
 
+@keyframes dash {
+  from { stroke-dashoffset: 20; }
+  to { stroke-dashoffset: 0; }
+}
+
+.cable-path-anim {
+  animation: dash 1s linear infinite;
+}
+
 /* ============================================
    Print & Utility
    ============================================ */
