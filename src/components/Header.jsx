@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useTracking } from '../context/TrackingContext';
 import {
-  LayoutDashboard, Building2, Menu, X, Cable, Activity, Settings, ClipboardList, Users
+  LayoutDashboard, Building2, Menu, X, Cable, Activity, Settings, ClipboardList, Users, LogOut
 } from 'lucide-react';
 
-export default function Header({ currentView, onNavigate }) {
+export default function Header({ currentView, onNavigate, onLogout }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { getGlobalStats } = useTracking();
   const globalStats = getGlobalStats();
@@ -15,6 +15,7 @@ export default function Header({ currentView, onNavigate }) {
     { id: 'cables', label: 'Câblages', icon: Cable },
     { id: 'todo', label: 'Todo', icon: ClipboardList },
     { id: 'suppliers', label: 'Fournisseurs', icon: Users },
+    { id: 'logs', label: 'Historique', icon: Activity },
     { id: 'settings', label: 'Réglages', icon: Settings },
   ];
 
@@ -33,6 +34,24 @@ export default function Header({ currentView, onNavigate }) {
           <div className="header-title">CâbleTrack</div>
           <div className="header-subtitle">Suivi Câblerie Hôpital</div>
         </div>
+        <button 
+          onClick={onLogout}
+          style={{ 
+            background: 'rgba(255,255,255,0.05)', 
+            border: 'none', 
+            borderRadius: '8px',
+            padding: '8px',
+            color: 'var(--color-text-muted)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginLeft: '12px'
+          }}
+          title="Déconnexion"
+        >
+          <LogOut size={18} />
+        </button>
       </div>
 
       <nav className={`header-nav ${mobileOpen ? 'mobile-open' : ''}`} id="main-nav">

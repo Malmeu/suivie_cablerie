@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { CABLE_TYPES, FLOORS, BLOCKS_PER_FLOOR, STATUS } from '../data/cableTypes';
-import { supabase } from '../lib/supabase';
+import { supabase, logAction } from '../lib/supabase';
 
 const TrackingContext = createContext(null);
 
@@ -127,6 +127,7 @@ export function TrackingProvider({ children }) {
         }, { onConflict: 'floor_id,block_num,cable_id' });
 
       if (error) throw error;
+      logAction('Mise à jour câble', `Bloc ${blockNum} (${floorId}) - Câble ${cableId} : ${status}`);
     } catch (err) {
       console.error('Erreur de synchro Supabase:', err.message);
       // En cas d'erreur, on pourrait recharger les données pour être à jour
@@ -170,6 +171,7 @@ export function TrackingProvider({ children }) {
         .upsert(upsertData, { onConflict: 'floor_id,block_num,cable_id' });
 
       if (error) throw error;
+      logAction('Mise à jour BLOC', `Bloc ${blockNum} (${floorId}) : Tous les câbles mis à ${statusId}`);
     } catch (err) {
       console.error('Erreur de synchro bloc Supabase:', err.message);
       fetchAllData();
@@ -258,6 +260,7 @@ export function TrackingProvider({ children }) {
         
         if (error) throw error;
         setTrackingData(getInitialEmptyData());
+        logAction('RÉINITIALISATION', 'Toutes les données du chantier ont été effacées');
       } catch (err) {
         console.error('Erreur lors de la réinitialisation:', err.message);
       }

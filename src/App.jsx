@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TrackingProvider } from './context/TrackingContext';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
@@ -9,15 +9,41 @@ import CablesView from './components/CablesView';
 import SettingsView from './components/SettingsView';
 import TodoListView from './components/TodoListView';
 import SuppliersView from './components/SuppliersView';
+import LogsView from './components/LogsView';
+import Login from './components/Login';
 import ReportTemplate from './components/ReportTemplate';
-import { useRef } from 'react';
+import { supabase } from './lib/supabase';
 
 function AppContent() {
   const reportRef = useRef(null);
+  
+  // Auth state
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   // Navigation state
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [selectedBlock, setSelectedBlock] = useState(null);
+
+  useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   /**
    * Gestion de la navigation
@@ -82,13 +108,16 @@ function AppContent() {
         return <CablesView />;
 
       case 'settings':
-        return <SettingsView reportRef={reportRef} />;
+        return <SettingsView reportRef={reportRef} onLogout={handleLogout} />;
 
       case 'todo':
         return <TodoListView />;
 
       case 'suppliers':
         return <SuppliersView />;
+
+      case 'logs':
+        return <LogsView />;
 
       default:
         return <Dashboard onNavigateFloor={handleNavigateFloor} />;
@@ -103,12 +132,21 @@ function AppContent() {
     if (currentView === 'settings') return 'settings';
     if (currentView === 'todo') return 'todo';
     if (currentView === 'suppliers') return 'suppliers';
+    if (currentView === 'logs') return 'logs';
     return 'dashboard';
   };
 
+  if (loading) {
+    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: 'white' }}>Initialisation...</div>;
+  }
+
+  if (!session) {
+    return <Login onLogin={(user) => setSession({ user })} />;
+  }
+
   return (
     <div className="app-layout">
-      <Header currentView={getNavView()} onNavigate={handleNavigate} />
+      <Header currentView={getNavView()} onNavigate={handleNavigate} onLogout={handleLogout} />
 
       <main className="app-content">
         {renderView()}

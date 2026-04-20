@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, logAction } from '../lib/supabase';
 import { 
   Users, Plus, Phone, Mail, Tag, Trash2, 
   ExternalLink, Search, User
@@ -32,6 +32,7 @@ export default function SuppliersView() {
       setNewSupplier({ name: '', category: 'Câbles', contact_name: '', phone: '', email: '' });
       setIsAdding(false);
       fetchSuppliers();
+      logAction('Fournisseur Ajouté', newSupplier.name);
     }
   };
 
@@ -39,6 +40,7 @@ export default function SuppliersView() {
     if (!confirm("Supprimer ce fournisseur ?")) return;
     await supabase.from('suppliers').delete().eq('id', id);
     fetchSuppliers();
+    logAction('Fournisseur Supprimé', id);
   };
 
   const filteredSuppliers = suppliers.filter(s => 

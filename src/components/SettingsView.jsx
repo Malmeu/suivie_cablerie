@@ -1,12 +1,12 @@
 import { useTracking } from '../context/TrackingContext';
 import { FLOORS, BLOCKS_PER_FLOOR, CABLE_TYPES } from '../data/cableTypes';
 import {
-  Trash2, Download, Upload, AlertTriangle, Info, FileText, Loader2
+  Trash2, Download, Upload, AlertTriangle, Info, FileText, Loader2, LogOut
 } from 'lucide-react';
 import { useState } from 'react';
 import { generatePDF } from '../utils/pdfGenerator';
 
-export default function SettingsView({ reportRef }) {
+export default function SettingsView({ reportRef, onLogout }) {
   const { trackingData, resetAllData } = useTracking();
   const [showConfirm, setShowConfirm] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);

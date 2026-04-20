@@ -11,7 +11,7 @@ const iconMap = { Monitor, Wifi, Laptop, Tv, Camera, Bell, Flame, Lock };
 // Coordonnées calibrées pour les 11 blocs sur le plan (en %)
 const BLOCK_COORDINATES = [{"x":40.8,"y":88.4},{"x":80.4,"y":79.8},{"x":81.8,"y":64.3},{"x":85.2,"y":38.7},{"x":78.7,"y":18.6},{"x":43.3,"y":21.5},{"x":25,"y":60.3},{"x":19.3,"y":75.5},{"x":13.4,"y":92.8},{"x":52.6,"y":56.7},{"x":34.9,"y":38.1}];
 
-import { supabase } from '../lib/supabase';
+import { supabase, logAction } from '../lib/supabase';
 
 export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
   const [selectedFloor, setSelectedFloor] = useState(initialFloor !== null ? initialFloor : 0);
@@ -105,6 +105,7 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
       }, { onConflict: 'floor_id,block_num,cable_id' });
       
       if (error) console.warn('Supabase: Table cable_paths non trouvée ou erreur', error.message);
+      else logAction('Tracé Câble', `${currentFloor.name} - Bloc ${activeBlockForPath} : Nouveau tracé pour ${activeCableForPath}`);
     } catch (err) {
       console.error('Erreur Supabase synchro:', err);
     }
@@ -123,6 +124,7 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
 
     if (!error && data) {
       setNotes([...notes, data]);
+      logAction('Nouvelle Note', `${currentFloor.name} : ${text}`);
     }
   };
 
@@ -130,6 +132,7 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
     if (!confirm("Supprimer cette note ?")) return;
     await supabase.from('floor_notes').delete().eq('id', noteId);
     setNotes(notes.filter(n => n.id !== noteId));
+    logAction('Suppression Note', `${currentFloor.name} : Une note a été effacée`);
   };
 
   const clearCurrentPath = async () => {
@@ -143,6 +146,7 @@ export default function FloorView({ initialFloor, onNavigateBlock, onBack }) {
       block_num: activeBlockForPath,
       cable_id: activeCableForPath
     });
+    logAction('Tracé Effacé', `${currentFloor.name} - Bloc ${activeBlockForPath} : Tracé ${activeCableForPath} supprimé`);
   };
 
   const currentFloor = FLOORS.find(f => f.id === selectedFloor);

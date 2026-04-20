@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, logAction } from '../lib/supabase';
 import { 
   Plus, Trash2, CheckCircle2, Circle, AlertCircle, 
   ClipboardList, Package, Calendar
@@ -57,6 +57,7 @@ export default function TodoListView() {
         console.log('Succès !', data);
         setNewTask('');
         fetchTodos();
+        logAction('Todo Ajouté', `${newType === 'task' ? 'Tâche' : 'Matériel'} : ${taskText}`);
       }
     } catch (err) {
       console.error('Erreur fatale JS:', err);
