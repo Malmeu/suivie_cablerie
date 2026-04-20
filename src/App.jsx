@@ -20,6 +20,7 @@ function AppContent() {
   // Auth state
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // Navigation state
   const [currentView, setCurrentView] = useState('dashboard');
@@ -40,6 +41,17 @@ function AppContent() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Theme Sync
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.remove('light-theme');
+    } else {
+      document.body.classList.add('light-theme');
+    }
+  }, [isDarkMode]);
+
+  const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -146,7 +158,13 @@ function AppContent() {
 
   return (
     <div className="app-layout">
-      <Header currentView={getNavView()} onNavigate={handleNavigate} onLogout={handleLogout} />
+      <Header 
+        currentView={getNavView()} 
+        onNavigate={handleNavigate} 
+        onLogout={handleLogout} 
+        isDarkMode={isDarkMode}
+        toggleTheme={toggleTheme}
+      />
 
       <main className="app-content">
         {renderView()}

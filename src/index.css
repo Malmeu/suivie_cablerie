@@ -56,6 +56,33 @@
   --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* -- MODE CLAIR -- */
+.light-theme {
+  --color-bg-primary: #f8fafc;
+  --color-bg-secondary: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-card-hover: #f1f5f9;
+  --color-bg-elevated: #ffffff;
+  --color-bg-input: #ffffff;
+
+  /* -- Bordures et overlays -- */
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-hover: rgba(0, 0, 0, 0.15);
+  --color-overlay: rgba(0, 0, 0, 0.2);
+  --color-glass: rgba(255, 255, 255, 0.85);
+
+  /* -- Texte -- */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-text-accent: #4f46e5;
+
+  /* -- Shadows -- */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
 /* ============================================
    Reset & Base
    ============================================ */

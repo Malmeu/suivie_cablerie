@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useTracking } from '../context/TrackingContext';
 import {
-  LayoutDashboard, Building2, Menu, X, Cable, Activity, Settings, ClipboardList, Users, LogOut
+  LayoutDashboard, Building2, Menu, X, Cable, Activity, Settings, 
+  ClipboardList, Users, LogOut, Sun, Moon
 } from 'lucide-react';
 
-export default function Header({ currentView, onNavigate, onLogout }) {
+export default function Header({ currentView, onNavigate, onLogout, isDarkMode, toggleTheme }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { getGlobalStats } = useTracking();
   const globalStats = getGlobalStats();
@@ -34,24 +35,43 @@ export default function Header({ currentView, onNavigate, onLogout }) {
           <div className="header-title">CâbleTrack</div>
           <div className="header-subtitle">Suivi Câblerie Hôpital</div>
         </div>
-        <button 
-          onClick={onLogout}
-          style={{ 
-            background: 'rgba(255,255,255,0.05)', 
-            border: 'none', 
-            borderRadius: '8px',
-            padding: '8px',
-            color: 'var(--color-text-muted)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginLeft: '12px'
-          }}
-          title="Déconnexion"
-        >
-          <LogOut size={18} />
-        </button>
+        <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+          <button 
+            onClick={toggleTheme}
+            style={{ 
+              background: 'rgba(255,255,255,0.05)', 
+              border: 'none', 
+              borderRadius: '8px',
+              padding: '8px',
+              color: 'var(--color-text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title={isDarkMode ? "Mode Clair" : "Mode Sombre"}
+          >
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          <button 
+            onClick={onLogout}
+            style={{ 
+              background: 'rgba(255,255,255,0.05)', 
+              border: 'none', 
+              borderRadius: '8px',
+              padding: '8px',
+              color: 'var(--color-text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Déconnexion"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
       </div>
 
       <nav className={`header-nav ${mobileOpen ? 'mobile-open' : ''}`} id="main-nav">
