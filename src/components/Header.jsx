@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTracking } from '../context/TrackingContext';
 import {
   LayoutDashboard, Building2, Menu, X, Cable, Activity, Settings, 
-  ClipboardList, Users, LogOut, Sun, Moon
+  ClipboardList, Users, LogOut, Sun, Moon, Layers
 } from 'lucide-react';
 
 export default function Header({ currentView, onNavigate, onLogout, isDarkMode, toggleTheme }) {
@@ -17,6 +17,7 @@ export default function Header({ currentView, onNavigate, onLogout, isDarkMode, 
     { id: 'todo', label: 'Todo', icon: ClipboardList },
     { id: 'suppliers', label: 'Fournisseurs', icon: Users },
     { id: 'logs', label: 'Historique', icon: Activity },
+    { id: 'designer', label: 'Designer', icon: Layers },
     { id: 'settings', label: 'Réglages', icon: Settings },
   ];
 

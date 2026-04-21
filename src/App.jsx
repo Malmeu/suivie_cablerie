@@ -10,6 +10,7 @@ import SettingsView from './components/SettingsView';
 import TodoListView from './components/TodoListView';
 import SuppliersView from './components/SuppliersView';
 import LogsView from './components/LogsView';
+import PlanDesignerView from './components/PlanDesignerView';
 import Login from './components/Login';
 import ReportTemplate from './components/ReportTemplate';
 import { supabase } from './lib/supabase';
@@ -131,6 +132,9 @@ function AppContent() {
       case 'logs':
         return <LogsView />;
 
+      case 'designer':
+        return <PlanDesignerView floorId={selectedFloor || 0} onBack={handleBackToDashboard} />;
+
       default:
         return <Dashboard onNavigateFloor={handleNavigateFloor} />;
     }
@@ -145,6 +149,7 @@ function AppContent() {
     if (currentView === 'todo') return 'todo';
     if (currentView === 'suppliers') return 'suppliers';
     if (currentView === 'logs') return 'logs';
+    if (currentView === 'designer') return 'designer';
     return 'dashboard';
   };
 
